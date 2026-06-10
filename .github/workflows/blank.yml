@@ -21,19 +21,16 @@ jobs:
 
       - name: Buka tunnel & tampilkan info login
         run: |
-          ./cloudflared tunnel --url ssh://localhost:22 --no-autoupdate 2>&1 | \
-          while read line; do
-            echo "$line"
-            if echo "$line" | grep -q "trycloudflare.com"; then
-              DOMAIN=$(echo "$line" | grep -o '[a-z0-9-]*\.trycloudflare\.com')
-              echo ""
-              echo "========================================="
-              echo "  Host    : $DOMAIN"
-              echo "  User    : runner"
-              echo "  Password: belajarlinux123"
-              echo "========================================="
-            fi
-          done
+                ./cloudflared tunnel --url ssh://localhost:22 --no-autoupdate > /tmp/cf.log 2>&1 &
+                sleep 10
+                cat /tmp/cf.log
+                DOMAIN=$(grep -o '[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
+                echo ""
+                echo "========================================="
+                echo "  Host    : $DOMAIN"
+                echo "  User    : runner"
+                echo "  Password: belajarlinux123"
+                echo "========================================="
 
       - name: Tunggu (max 6 jam)
         run: sleep 21600
