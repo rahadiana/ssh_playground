@@ -1,0 +1,72 @@
+name: SSH Playground
+
+on:
+  workflow_dispatch:
+    inputs:
+      ssh_password:
+        description: 'Password SSH'
+        required: true
+      telegram_bot_token:
+        description: 'Telegram Bot Token'
+        required: true
+      telegram_chat_id:
+        description: 'Telegram Chat ID'
+        required: true
+      duration:
+        description: 'Durasi sesi (detik, maks 21600)'
+        required: false
+        default: '21600'
+
+jobs:
+  ssh-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Install cloudflared
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+            -o cloudflared
+          chmod +x cloudflared
+
+      - name: Set password SSH
+        run: |
+          echo "runner:${{ github.event.inputs.ssh_password }}" | sudo chpasswd
+          sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+
+      - name: Buka tunnel
+        run: |
+          ./cloudflared tunnel --url ssh://localhost:22 --no-autoupdate > /tmp/cf.log 2>&1 &
+          sleep 10
+          DOMAIN=$(grep -o '[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
+          echo "DOMAIN=$DOMAIN" >> $GITHUB_ENV
+          echo "✅ Tunnel aktif: $DOMAIN"
+
+      - name: Kirim info login ke Telegram
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ github.event.inputs.telegram_bot_token }}/sendMessage" \
+            -d chat_id="${{ github.event.inputs.telegram_chat_id }}" \
+            -d parse_mode="HTML" \
+            -d text="
+          🖥 <b>SSH Playground Ready!</b>
+
+          <b>Host:</b> <code>${{ env.DOMAIN }}</code>
+          <b>User:</b> <code>runner</code>
+          <b>Password:</b> <code>${{ github.event.inputs.ssh_password }}</code>
+
+          <b>Connect:</b>
+          <code>ssh -o ProxyCommand=\"cloudflared access ssh --hostname %h\" runner@${{ env.DOMAIN }}</code>
+
+          ⏳ Aktif maksimal 6 jam"
+
+      - name: Tunggu
+        run: sleep ${{ github.event.inputs.duration }}
+
+      - name: Kirim notif sesi selesai ke Telegram
+        if: always()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ github.event.inputs.telegram_bot_token }}/sendMessage" \
+            -d chat_id="${{ github.event.inputs.telegram_chat_id }}" \
+            -d parse_mode="HTML" \
+            -d text="⛔ <b>Sesi SSH sudah berakhir.</b>"
