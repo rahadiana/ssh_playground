@@ -1,0 +1,39 @@
+name: SSH Playground
+
+on:
+  workflow_dispatch:  # jalankan manual dari GitHub
+
+jobs:
+  ssh-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install cloudflared
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+            -o cloudflared
+          chmod +x cloudflared
+
+      - name: Set password
+        run: |
+          echo "runner:belajarlinux123" | sudo chpasswd
+          sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+
+      - name: Buka tunnel & tampilkan info login
+        run: |
+          ./cloudflared tunnel --url ssh://localhost:22 --no-autoupdate 2>&1 | \
+          while read line; do
+            echo "$line"
+            if echo "$line" | grep -q "trycloudflare.com"; then
+              DOMAIN=$(echo "$line" | grep -o '[a-z0-9-]*\.trycloudflare\.com')
+              echo ""
+              echo "========================================="
+              echo "  Host    : $DOMAIN"
+              echo "  User    : runner"
+              echo "  Password: belajarlinux123"
+              echo "========================================="
+            fi
+          done
+
+      - name: Tunggu (max 6 jam)
+        run: sleep 21600
