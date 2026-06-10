@@ -1,4 +1,4 @@
-name: SSH Playground
+name: SSH Playground Manual
 
 on:
   workflow_dispatch:
