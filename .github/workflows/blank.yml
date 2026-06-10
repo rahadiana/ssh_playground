@@ -1,11 +1,18 @@
-name: SSH Playground
+name: SSH Playground via secret
 
 on:
-  workflow_dispatch:  # jalankan manual dari GitHub
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Durasi sesi (detik, maks 21600)'
+        required: false
+        default: '21600'
 
 jobs:
   ssh-server:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
+
     steps:
       - name: Install cloudflared
         run: |
@@ -13,24 +20,40 @@ jobs:
             -o cloudflared
           chmod +x cloudflared
 
-      - name: Set password
+      - name: Set password SSH
         run: |
-          echo "runner:belajarlinux123" | sudo chpasswd
+          echo "runner:${{ secrets.SSH_PASSWORD }}" | sudo chpasswd
           sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sudo systemctl restart ssh
 
-      - name: Buka tunnel & tampilkan info login
+      - name: Buka tunnel
         run: |
-                ./cloudflared tunnel --url ssh://localhost:22 --no-autoupdate > /tmp/cf.log 2>&1 &
-                sleep 10
-                cat /tmp/cf.log
-                DOMAIN=$(grep -o '[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
-                echo ""
-                echo "========================================="
-                echo "  Host    : $DOMAIN"
-                echo "  User    : runner"
-                echo "  Password: belajarlinux123"
-                echo "========================================="
+          ./cloudflared tunnel --url ssh://localhost:22 --no-autoupdate > /tmp/cf.log 2>&1 &
+          sleep 10
+          DOMAIN=$(grep -o '[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
+          echo "DOMAIN=$DOMAIN" >> $GITHUB_ENV
 
-      - name: Tunggu (max 6 jam)
-        run: sleep 21600
+      - name: Kirim info login ke Telegram
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="HTML" \
+            -d text="
+          🖥 <b>SSH Playground Ready!</b>
+
+          <b>Host:</b> <code>${{ env.DOMAIN }}</code>
+          <b>User:</b> <code>runner</code>
+          <b>Password:</b> <code>${{ secrets.SSH_PASSWORD }}</code>
+
+          ⏳ Aktif maksimal 6 jam"
+
+      - name: Tunggu
+        run: sleep ${{ github.event.inputs.duration }}
+
+      - name: Kirim notif sesi selesai ke Telegram
+        if: always()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="HTML" \
+            -d text="⛔ <b>Sesi SSH sudah berakhir.</b>"
