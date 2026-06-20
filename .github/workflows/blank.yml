@@ -45,7 +45,7 @@ jobs:
           <b>User:</b> <code>runner</code>
           <b>Password:</b> <code>${{ secrets.SSH_PASSWORD }}</code>
 
-          ⏳ Aktif maksimal 6 jam" || echo "kirim telegram sukses"
+          ⏳ Aktif maksimal 6 jam" > /dev/null
 
       - name: Tunggu
         run: sleep ${{ github.event.inputs.duration }}
@@ -56,4 +56,4 @@ jobs:
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="HTML" \
-            -d text="⛔ <b>Sesi SSH sudah berakhir.</b>"
+            -d text="⛔ <b>Sesi SSH sudah berakhir.</b>" > /dev/null
