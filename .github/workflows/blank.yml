@@ -45,7 +45,7 @@ jobs:
           <b>User:</b> <code>runner</code>
           <b>Password:</b> <code>${{ secrets.SSH_PASSWORD }}</code>
 
-          ⏳ Aktif maksimal 6 jam"
+          ⏳ Aktif maksimal 6 jam" || echo "kirim telegram sukses"
 
       - name: Tunggu
         run: sleep ${{ github.event.inputs.duration }}
