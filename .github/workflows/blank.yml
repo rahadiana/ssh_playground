@@ -30,7 +30,6 @@ jobs:
         run: |
           ./cloudflared tunnel --url ssh://localhost:22 --no-autoupdate > /tmp/cf.log 2>&1 &
           sleep 20
-          echo "DOMAIN=$DOMAIN"
           DOMAIN=$(grep -o '[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
           echo "DOMAIN=$DOMAIN" >> $GITHUB_ENV
 
